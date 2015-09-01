@@ -1,16 +1,30 @@
 # EPQ: Generative Music
 # Markov Music Generator (MMG) [needs better name]
 
+'''
+IDEAS FOR IMPROVEMENT:
+* Rythmic Consistency (if it starts with long notes, stay with them and vice versa)
+  This might be achieved by increasing the RYTHMN_ORDER.
+  Or this can be done with adding legato to short notes with long notes,
+  and staccato to long notes with short notes.
+* Melody links with rythmn: notes which tend to be grace notes should be like that in the output.
+  Maybe include weightings for position in the bar? (1,4,3,2 in order of importance)
+* It seems to just really like long notes. Maybe I need to add some more sources.
+* Having key influenced by underneath chords, and generating those chords before melodies.
+* Rewrite with only one chain taking both duration and pitch into account.
+'''
+
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
 RYTHMN_ORDER = 4 # The order of the Markov Chain/Process for RYTHMN
-OUTPUT_LENGTH = 4 # Number of 4/4 bars of output
+OUTPUT_LENGTH = 8 # Number of 4/4 bars of output
 
 from music21 import * # *feels the fury of the Python Gods*
 from chains2 import *
 import os,copy
 
 def getMelodyData(data):
+    melodyData = []
     for d in data:
         part = d.parts[0].getElementsByClass(stream.Measure) # Returns a list of Measures
         key = part[0].keySignature.getScale().tonic
@@ -72,13 +86,13 @@ if __name__ == '__main__':
     for f in os.listdir("data"):
         if f.endswith(".xml"):
             data.append(f)
+    print data
     for i in range(len(data)):
         data[i] = converter.parse('data/'+data[i])
     print "Data collected!"
     # Now, we need to do the transition matrix stuff!
     # This is done through analysis by music21 and then Markov stuff from chains2
     # First, the melody stuff:
-    melodyData = [] # No idea why it has to be predefined...
     melodyData = getMelodyData(data)
     MelodyChain = MarkovChain()
     MelodyChain.generateMatrix(melodyData,MELODY_ORDER,"X")
@@ -113,6 +127,9 @@ if __name__ == '__main__':
             if currentBeat[0] == '+':
                 slur = True
                 currentBeat.pop(0)
+            if durat >= 4: # Prevents notes from being too long
+                durat = 4
+                slur = False
         n.duration.quarterLength = durat
         tune.append(n)
     print "Rythmn determined!"
