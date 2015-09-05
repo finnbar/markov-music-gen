@@ -14,6 +14,9 @@ IDEAS FOR IMPROVEMENT:
 * Rewrite with only one chain taking both duration and pitch into account.
 '''
 
+# TODO: apply WeightedMarkovChain to the MelodyChain, with weight classes
+# 'f' (in first beat?), 'l' (in last beat?), 'o' (doesn't matter, just a global state for other notes)
+
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
 RYTHMN_ORDER = 4 # The order of the Markov Chain/Process for RYTHMN
@@ -25,6 +28,7 @@ import os,copy
 
 def getMelodyData(data):
     melodyData = []
+    weightData = []
     for d in data:
         part = d.parts[0].getElementsByClass(stream.Measure) # Returns a list of Measures
         key = part[0].keySignature.getScale().tonic
@@ -38,7 +42,13 @@ def getMelodyData(data):
                     melodyData[-1].append(interval.notesToChromatic(key,n).mod12)
                 elif(type(n) == note.Rest):
                     melodyData.append([])
-    return melodyData
+                if(n.offset == 0.0):
+                    weightData.append(['f','f','f']) # extra copies of state => higher weighting
+                elif(n.offset == m.barDuration.quarterLength - 1):
+                    weightData.append(['l','l','l'])
+                else:
+                    weightData.append([])
+    return (melodyData,weightData)
 
 def getRythmnData(data):
     currentLetter = 'a'
@@ -93,9 +103,9 @@ if __name__ == '__main__':
     # Now, we need to do the transition matrix stuff!
     # This is done through analysis by music21 and then Markov stuff from chains2
     # First, the melody stuff:
-    melodyData = getMelodyData(data)
-    MelodyChain = MarkovChain()
-    MelodyChain.generateMatrix(melodyData,MELODY_ORDER,"X")
+    melodyData,weightData = getMelodyData(data)
+    MelodyChain = WeightedMarkovChain()
+    MelodyChain.generateMatrix(melodyData,['o','f','l'],weightData,MELODY_ORDER,"X")
     print "Melody data analysed!"
     # Now, the rythmn stuff:
     # We're going to have another Markov chain looking at rythmn...
@@ -135,6 +145,12 @@ if __name__ == '__main__':
     print "Rythmn determined!"
     # Start by adding generic (no octave) pitches
     for i in tune.notesAndRests:
+        if(i.offset == 0.0):
+            MelodyChain.globalState = 'f'
+        elif(i.offset >= 3.0):
+            MelodyChain.globalState = 'l'
+        else:
+            MelodyChain.globalState = 'o'
         interv = MelodyChain.tick()
         while interv == "X":
             interv = MelodyChain.tick()
