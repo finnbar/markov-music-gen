@@ -15,6 +15,9 @@ IDEAS FOR IMPROVEMENT:
 * Having key influenced by underneath chords, and generating those chords before melodies.
 '''
 
+# BUGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+# CHANGING KEY ADDS SOME VERY ODD NOTES
+
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
 RYTHMN_ORDER = 8 # The order of the Markov Chain/Process for RYTHMN
@@ -88,7 +91,7 @@ def getRythmnData(data):
                     overflow = 0
     return (rythmnData,rythmnKey)
 
-if __name__ == '__main__':
+def generateMusic():
     # Let's go!
     # First, we need to collect our data!
     # We look in /data to get our data.
@@ -112,8 +115,6 @@ if __name__ == '__main__':
     print "Melody data analysed!"
     # Now, the rythmn stuff:
     # We're going to have another Markov chain looking at rythmn...
-    rythmnData = []
-    rythmnKey = {}
     rythmnData, rythmnKey = getRythmnData(data)
     RythmnChain = MarkovChain()
     RythmnChain.generateMatrix(rythmnData,RYTHMN_ORDER,"X")
@@ -124,6 +125,7 @@ if __name__ == '__main__':
     # This is done by creating a Stream and appending the results of the Markov Chains/Processes to it
     tune = stream.Part()
     tune.append(meter.TimeSignature(str(int(TIME_SIGNATURE))+'/4'))
+    tune.append(key.Key(KEY))
     currentBeat = rythmnKey[RythmnChain.tick()]
     while tune.duration.quarterLength < OUTPUT_LENGTH * TIME_SIGNATURE:
         print str(tune.duration.quarterLength) + "/" + str(OUTPUT_LENGTH * TIME_SIGNATURE)
@@ -186,3 +188,31 @@ if __name__ == '__main__':
     finalScore = stream.Score()
     finalScore.append(tune)
     finalScore.show()
+
+if __name__ == '__main__':
+    rythmnData = []
+    rythmnKey = {}
+    # This is our menu, where you can change settings and then generate music.
+    inp = ""
+    while not (inp in ["g","G"]):
+        print
+        print "MENU"
+        print "____"
+        print "t) Change the time signature"
+        print "k) Change the tonic of the key"
+        print "o) Change the output length"
+        print "m) Change the order of the melody matrix"
+        print "r) Change the order of the rythmn matrix"
+        print "g) Generate the music!"
+        inp = raw_input("What would you like to do? (type the letter) ")
+        if inp in ["t","T"]:
+            TIME_SIGNATURE = int(raw_input("Enter the number of beats in a bar: "))
+        elif inp in ["k","K"]:
+            KEY = raw_input("Enter the key (e.g. C): ")
+        elif inp in ["o","O"]:
+            OUTPUT_LENGTH = int(raw_input("Enter the output length (in bars): "))
+        elif inp in ["m","M"]:
+            MELODY_ORDER = int(raw_input("Enter the melody matrix order (number): "))
+        elif inp in ["r","R"]:
+            RYTHMN_ORDER = int(raw_input("Enter the rythmn order (number): "))
+    generateMusic()
