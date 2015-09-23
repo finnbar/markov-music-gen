@@ -9,18 +9,17 @@ IDEAS FOR IMPROVEMENT:
   and staccato to long notes with short notes.
 * Melody links with rythmn: notes which tend to be grace notes should be like that in the output.
   Maybe include weightings for position in the bar? (1,4,3,2 in order of importance)
+* Maybe weight melody stuff by length? <- IMPORTANT!!!!!
+  Add to Weighting - just for loop through the value as a multiplier to add it multiple times.
 * It seems to just really like long notes. Maybe I need to add some more sources.
 * Having key influenced by underneath chords, and generating those chords before melodies.
-* Rewrite with only one chain taking both duration and pitch into account.
 '''
-
-# TODO: apply WeightedMarkovChain to the MelodyChain, with weight classes
-# 'f' (in first beat?), 'l' (in last beat?), 'o' (doesn't matter, just a global state for other notes)
 
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
-RYTHMN_ORDER = 4 # The order of the Markov Chain/Process for RYTHMN
-OUTPUT_LENGTH = 8 # Number of 4/4 bars of output
+RYTHMN_ORDER = 8 # The order of the Markov Chain/Process for RYTHMN
+OUTPUT_LENGTH = 8 # Number of bars of output
+TIME_SIGNATURE = 4.0 # Beats in a bar!
 
 from music21 import * # *feels the fury of the Python Gods*
 from chains2 import *
@@ -42,6 +41,8 @@ def getMelodyData(data):
                     melodyData[-1].append(interval.notesToChromatic(key,n).mod12)
                 elif(type(n) == note.Rest):
                     melodyData.append([])
+                else: # It's a chord! Get the top note!
+                    melodyData[-1].append(interval.notesToChromatic(key,n[-1]).mod12)
                 if(n.offset == 0.0):
                     weightData.append(['f','f','f']) # extra copies of state => higher weighting
                 elif(n.offset == m.barDuration.quarterLength - 1):
@@ -93,12 +94,14 @@ if __name__ == '__main__':
     # We look in /data to get our data.
     print "Hello!"
     data = []
-    for f in os.listdir("data"):
+    datadir = "data"
+    for f in os.listdir(datadir):
         if f.endswith(".xml"):
-            data.append(f)
+            if f[0] != "_":
+                data.append(f)
     print data
     for i in range(len(data)):
-        data[i] = converter.parse('data/'+data[i])
+        data[i] = converter.parse(datadir+'/'+data[i])
     print "Data collected!"
     # Now, we need to do the transition matrix stuff!
     # This is done through analysis by music21 and then Markov stuff from chains2
@@ -119,10 +122,11 @@ if __name__ == '__main__':
     print rythmnKey
     # Let's simulate it now!
     # This is done by creating a Stream and appending the results of the Markov Chains/Processes to it
-    tune = stream.Stream()
+    tune = stream.Part()
+    tune.append(meter.TimeSignature(str(int(TIME_SIGNATURE))+'/4'))
     currentBeat = rythmnKey[RythmnChain.tick()]
-    while tune.duration.quarterLength < OUTPUT_LENGTH * 4:
-        print str(tune.duration.quarterLength) + "/" + str(OUTPUT_LENGTH * 4)
+    while tune.duration.quarterLength < OUTPUT_LENGTH * TIME_SIGNATURE:
+        print str(tune.duration.quarterLength) + "/" + str(OUTPUT_LENGTH * TIME_SIGNATURE)
         n = note.Note(KEY) # Temporary pitch
         durat = 0
         slur = True
@@ -137,27 +141,32 @@ if __name__ == '__main__':
             if currentBeat[0] == '+':
                 slur = True
                 currentBeat.pop(0)
-            if durat >= 4: # Prevents notes from being too long
-                durat = 4
+            if durat >= TIME_SIGNATURE: # Prevents notes from being too long
+                durat = TIME_SIGNATURE
                 slur = False
         n.duration.quarterLength = durat
         tune.append(n)
     print "Rythmn determined!"
     # Start by adding generic (no octave) pitches
+    c = 0
+    stillgoing = True
     for i in tune.notesAndRests:
-        if(i.offset == 0.0):
-            MelodyChain.globalState = 'f'
-        elif(i.offset >= 3.0):
-            MelodyChain.globalState = 'l'
-        else:
-            MelodyChain.globalState = 'o'
-        interv = MelodyChain.tick()
-        while interv == "X":
+        if stillgoing:
+            c+=1
+            if(i.offset == 0.0):
+                MelodyChain.globalState = 'f'
+            elif(i.offset >= TIME_SIGNATURE - 1.0):
+                MelodyChain.globalState = 'l'
+            else:
+                MelodyChain.globalState = 'o'
             interv = MelodyChain.tick()
-        p = interval.ChromaticInterval(int(interv)).transposePitch(pitch.Pitch(KEY))
-        i.pitch = p
+            while interv == "X":
+                interv = MelodyChain.tick()
+                stillgoing = False
+            p = interval.ChromaticInterval(int(interv)).transposePitch(pitch.Pitch(KEY))
+            i.pitch = p
     # Now smooth out the octaves:
-    for i in range(1,len(tune.notesAndRests)):
+    for i in range(1,c):
         e = tune.notesAndRests[i].pitch
         pe = tune.notesAndRests[i-1].pitch
         d = 10000 # difference
@@ -174,4 +183,6 @@ if __name__ == '__main__':
                 correct = e.octave
         tune.notesAndRests[i].pitch.octave = correct
     print "Melody determined!"
-    tune.show()
+    finalScore = stream.Score()
+    finalScore.append(tune)
+    finalScore.show()

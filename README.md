@@ -19,3 +19,11 @@ If you haven't already got Python installed, go to Python's website and run the 
 pip install music21
 ```
 to install music21. Then grab your favourite MusicXML editor (*cough*MuseScore*cough*), and assign it to MusicXML files by right-clicking a .xml file (which can be found in /data), selecting Open With..., choosing your editor and ticking the "Always use..." box. That should do it!
+
+### Set up on Linux
+
+You know how to do this, I'm sure. But just in case, I'll mention the packages you'll need. See https://musescore.org/apt first for instructions about adding the MuseScore PPA, or you could just install it yourself.
+```
+sudo apt-get install python musescore
+pip install music21
+```
