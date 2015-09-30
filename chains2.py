@@ -15,6 +15,9 @@ class MarkovChain: # gosh this version is much larger than the previous one!
         t = {prevkey: {}}
         data.append(startkey) # We want the last piece of data to be considered too!
         for dataset in data:
+            # Reset for each piece
+            prev = [startkey for i in range(order)]
+            prevkey = self.generateKey(prev)
             for d in dataset:
                 if not (prevkey in t.keys()): # If it doesn't exist, add it!
                     t[prevkey] = {}
@@ -43,6 +46,19 @@ class MarkovChain: # gosh this version is much larger than the previous one!
         lowerVals = []
         keys = []
         rand = random.random()
+        foundKey = self.o
+        while not foundKey == 0:
+            try:
+                self.matrix[current]
+                foundKey = 0
+            except KeyError:
+                print "Bad state. Searching for one like '."+self.generateKey(self.history[self.o-foundKey:])+"'"
+                foundKey -= 1
+                for i in self.matrix.keys():
+                    if "."+self.generateKey(self.history[self.o-foundKey:]) in i:
+                        current = i
+                        foundKey = 0
+                        break
         for i in self.matrix[current]: # grab probabilities
             lowerVals.append(self.matrix[current][i])
             keys.append(i)
@@ -88,6 +104,8 @@ class WeightedMarkovChain(MarkovChain):
         w = {i: {prevkey: {}} for i in globalStates}
         data.append(startkey) # We want the last piece of data to be considered too!
         for dataset in data:
+            prev = [startkey for i in range(order)] # Nothing has happened so far
+            prevkey = self.generateKey(prev)
             for q in range(len(dataset)):
                 d = dataset[q]
                 if not (prevkey in t.keys()): # If it doesn't exist, add it!
@@ -126,6 +144,19 @@ class WeightedMarkovChain(MarkovChain):
         lowerVals = []
         keys = []
         rand = random.random()
+        foundKey = self.o
+        while not foundKey == 0:
+            try:
+                self.matrix[current]
+                foundKey = 0
+            except KeyError:
+                print "."+self.generateKey(self.history[self.o-foundKey:])
+                foundKey -= 1
+                for i in self.matrix.keys():
+                    if "."+self.generateKey(self.history[self.o-foundKey:]) in i:
+                        current = i
+                        foundKey = 0
+                        break
         for i in self.matrix[current]: # grab probabilities
             lowerVals.append(self.matrix[current][i]*self.weightMatrix[self.globalState][current][i])
             keys.append(i)
@@ -145,3 +176,36 @@ class WeightedMarkovChain(MarkovChain):
                     # Start states are special.
                     self.history = [self.start for j in range(self.o)]
                 return keys[i]
+
+class NameMarkovChain(MarkovChain):
+    def generateMatrix(self,data,order,startkey="0"):
+        # Generate a transition matrix from some data!
+        # Please do not have SEPARATOR in your data or startkey
+        # And have an integer order, for goodness' sake!
+        prev = [startkey for i in range(order)] # Nothing has happened so far
+        prevkey = self.generateKey(prev)
+        t = {prevkey: {}}
+        data.append(startkey) # We want the last piece of data to be considered too!
+        for dataset in data:
+            for d in dataset:
+                if not (prevkey in t.keys()): # If it doesn't exist, add it!
+                    t[prevkey] = {}
+                if not (str(d) in t[prevkey].keys()): # Same here!
+                    t[prevkey][str(d)] = 1 # Initialise it
+                else:
+                    t[prevkey][str(d)] += 1 # Increase it!
+                newprev = self.generatePrev(d,prev) # Shift everything back
+                prevkey = self.generateKey(newprev) # Get a new key
+                prev = newprev[:] # Go go go!
+        # Now turn the occurences into probabilities!
+        for k in t:
+            tot = 0.0
+            for m in t[k]:
+                tot += t[k][m]
+            for m in t[k]:
+                t[k][m] /= tot
+        self.matrix = t # Yay, we win.
+        self.o = order
+        self.history = [startkey for i in range(order)]
+        self.start = startkey
+        self.state = startkey

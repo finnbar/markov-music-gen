@@ -16,18 +16,16 @@ IDEAS FOR IMPROVEMENT:
 * This can't make minor music. Yet.
 '''
 
-# Also, implement Tintinnabul...
-
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
 RYTHMN_ORDER = 8 # The order of the Markov Chain/Process for RYTHMN
 OUTPUT_LENGTH = 8 # Number of bars of output
 TIME_SIGNATURE = 4.0 # Beats in a bar!
+TINTINN = False
 T_VOICE = 1 # Variation for the Tintinnabuli method (+ 1 2 3 ONLY)
 
 from music21 import * # *feels the fury of the Python Gods*
 from chains2 import *
-from songnames import *
 import os,copy
 
 def getMelodyData(data):
@@ -95,9 +93,11 @@ def getRythmnData(data):
 
 def createTitle():
     d = []
-    for i in grabData():
+    f = file("songnames.txt","r")
+    data = f.readline()
+    for i in data:
         d.append(i)
-    T = MarkovChain()
+    T = NameMarkovChain()
     T.generateMatrix(d,2," ")
     n = ""
     for i in range(random.randrange(5,20)):
@@ -126,6 +126,7 @@ def generateMusic():
     MelodyChain = WeightedMarkovChain()
     MelodyChain.generateMatrix(melodyData,['o','f','l'],weightData,MELODY_ORDER,"X")
     print "Melody data analysed!"
+    print MelodyChain.matrix['X.X']
     # Now, the rythmn stuff:
     # We're going to have another Markov chain looking at rythmn...
     rythmnData, rythmnKey = getRythmnData(data)
@@ -133,7 +134,6 @@ def generateMusic():
     RythmnChain.generateMatrix(rythmnData,RYTHMN_ORDER,"X")
     rythmnKey.update({"X": []}) # Just so it doesn't panic when it gets an X
     print "Rythmn data analysed!"
-    print rythmnKey
     # Let's simulate it now!
     # This is done by creating a Stream and appending the results of the Markov Chains/Processes to it
     tune = stream.Part()
@@ -198,30 +198,34 @@ def generateMusic():
                 correct = e.octave
         tune.notesAndRests[i].pitch.octave = correct
     print "Melody determined!"
-    # Now, Tintinnabuli!
-    tinn = stream.Part()
-    tinn.append(meter.TimeSignature(str(int(TIME_SIGNATURE))+'/4'))
-    tinn.append(key.Key(KEY))
-    # THIS IS BROKEN, FIX IT.
-    for i in tune.notesAndRests:
-        # Our base pitches:
-        pitches = [note.Note(KEY),interval.transposeNote(note.Note(KEY),'M3'),interval.transposeNote(note.Note(KEY),'p5')]
-        localpitches = {}
-        for j in range(len(pitches)):
-            localpitches.update({str(interval.Interval(pitches[j],i).semitones): pitches[j]})
-        n = localpitches[sorted(localpitches)[T_VOICE-1]]
-        # Actually add note to tinn line now, and then you win.
-        n.quarterLength = i.quarterLength
-        tinn.append(n)
-    # TODO
-    print "Tintinnabuli bass added!"
+    if TINTINN:
+        # Now, Tintinnabuli!
+        tinn = stream.Part()
+        tinn.append(meter.TimeSignature(str(int(TIME_SIGNATURE))+'/4'))
+        tinn.append(key.Key(KEY))
+        for i in tune.notesAndRests:
+            # Our base pitches:
+            pitches = [note.Note(KEY+"3"),interval.transposeNote(note.Note(KEY+"3"),'M3'),interval.transposeNote(note.Note(KEY+"2"),'p5')]
+            localpitches = {}
+            for j in range(len(pitches)):
+                localpitches.update({str(interval.Interval(pitches[j],i).semitones): pitches[j]})
+            c = T_VOICE-1
+            n = localpitches[sorted(localpitches)[c]]
+            while interval.Interval(n,i).semitones % 12 == 1:
+                c+=1
+                if c>2: c=0
+                n = localpitches[sorted(localpitches)[c]]
+            # Actually add note to tinn line now, and then you win.
+            n.quarterLength = i.quarterLength
+            tinn.append(n)
+        print "Tintinnabuli bass added!"
     finalScore = stream.Score()
     titleOfSong = createTitle()
     finalScore.insert(metadata.Metadata())
     finalScore.metadata.title = titleOfSong
     print "Generated title!"
     finalScore.insert(0,tune)
-    finalScore.insert(0,tinn)
+    if TINTINN: finalScore.insert(0,tinn)
     finalScore.show()
 
 if __name__ == '__main__':
@@ -238,6 +242,7 @@ if __name__ == '__main__':
         print "o) Change the output length"
         print "m) Change the order of the melody matrix"
         print "r) Change the order of the rythmn matrix"
+        print "n) Add a Tintinnabuli bassline"
         print "g) Generate the music!"
         inp = raw_input("What would you like to do? (type the letter) ")
         if inp in ["t","T"]:
