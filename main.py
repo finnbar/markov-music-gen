@@ -13,19 +13,21 @@ IDEAS FOR IMPROVEMENT:
   Add to Weighting - just for loop through the value as a multiplier to add it multiple times.
 * It seems to just really like long notes. Maybe I need to add some more sources.
 * Having key influenced by underneath chords, and generating those chords before melodies.
+* This can't make minor music. Yet.
 '''
 
-# BUGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
-# CHANGING KEY ADDS SOME VERY ODD NOTES
+# Also, implement Tintinnabul...
 
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
 RYTHMN_ORDER = 8 # The order of the Markov Chain/Process for RYTHMN
 OUTPUT_LENGTH = 8 # Number of bars of output
 TIME_SIGNATURE = 4.0 # Beats in a bar!
+T_VOICE = 1 # Variation for the Tintinnabuli method (+ 1 2 3 ONLY)
 
 from music21 import * # *feels the fury of the Python Gods*
 from chains2 import *
+from songnames import *
 import os,copy
 
 def getMelodyData(data):
@@ -33,19 +35,19 @@ def getMelodyData(data):
     weightData = []
     for d in data:
         part = d.parts[0].getElementsByClass(stream.Measure) # Returns a list of Measures
-        key = part[0].keySignature.getScale().tonic
+        key = note.Note(part[0].keySignature.getScale().tonic)
         # Now, am I going to get "key" from keysignature or underlying chord?
         # Probably chord, so I need to rewrite the <key> stuff...
         melodyData.append([])
         for m in part: # For each measure!
-            if(m.keySignature): key = m.keySignature.getScale().tonic
+            if(m.keySignature): key = note.Note(m.keySignature.getScale().tonic)
             for n in m.notesAndRests:
                 if(type(n) == note.Note):
-                    melodyData[-1].append(interval.notesToChromatic(key,n).mod12)
+                    melodyData[-1].append(interval.Interval(key,n).simpleName)
                 elif(type(n) == note.Rest):
                     melodyData.append([])
                 else: # It's a chord! Get the top note!
-                    melodyData[-1].append(interval.notesToChromatic(key,n[-1]).mod12)
+                    melodyData[-1].append(interval.Interval(key,n[-1]).simpleName)
                 if(n.offset == 0.0):
                     weightData.append(['f','f','f']) # extra copies of state => higher weighting
                 elif(n.offset == m.barDuration.quarterLength - 1):
@@ -90,6 +92,17 @@ def getRythmnData(data):
                     currentBeat = []
                     overflow = 0
     return (rythmnData,rythmnKey)
+
+def createTitle():
+    d = []
+    for i in grabData():
+        d.append(i)
+    T = MarkovChain()
+    T.generateMatrix(d,2," ")
+    n = ""
+    for i in range(random.randrange(5,20)):
+        n += str(T.tick())
+    return n
 
 def generateMusic():
     # Let's go!
@@ -165,7 +178,7 @@ def generateMusic():
             while interv == "X":
                 interv = MelodyChain.tick()
                 stillgoing = False
-            p = interval.ChromaticInterval(int(interv)).transposePitch(pitch.Pitch(KEY))
+            p = interval.Interval(interv).transposePitch(pitch.Pitch(KEY))
             i.pitch = p
     # Now smooth out the octaves:
     for i in range(1,c):
@@ -185,8 +198,30 @@ def generateMusic():
                 correct = e.octave
         tune.notesAndRests[i].pitch.octave = correct
     print "Melody determined!"
+    # Now, Tintinnabuli!
+    tinn = stream.Part()
+    tinn.append(meter.TimeSignature(str(int(TIME_SIGNATURE))+'/4'))
+    tinn.append(key.Key(KEY))
+    # THIS IS BROKEN, FIX IT.
+    for i in tune.notesAndRests:
+        # Our base pitches:
+        pitches = [note.Note(KEY),interval.transposeNote(note.Note(KEY),'M3'),interval.transposeNote(note.Note(KEY),'p5')]
+        localpitches = {}
+        for j in range(len(pitches)):
+            localpitches.update({str(interval.Interval(pitches[j],i).semitones): pitches[j]})
+        n = localpitches[sorted(localpitches)[T_VOICE-1]]
+        # Actually add note to tinn line now, and then you win.
+        n.quarterLength = i.quarterLength
+        tinn.append(n)
+    # TODO
+    print "Tintinnabuli bass added!"
     finalScore = stream.Score()
-    finalScore.append(tune)
+    titleOfSong = createTitle()
+    finalScore.insert(metadata.Metadata())
+    finalScore.metadata.title = titleOfSong
+    print "Generated title!"
+    finalScore.insert(0,tune)
+    finalScore.insert(0,tinn)
     finalScore.show()
 
 if __name__ == '__main__':
@@ -208,7 +243,8 @@ if __name__ == '__main__':
         if inp in ["t","T"]:
             TIME_SIGNATURE = int(raw_input("Enter the number of beats in a bar: "))
         elif inp in ["k","K"]:
-            KEY = raw_input("Enter the key (e.g. C): ")
+            KEY = raw_input("Enter the key (e.g. C), making sure it has a capital letter: ")
+            KEY = KEY.replace("b","-")
         elif inp in ["o","O"]:
             OUTPUT_LENGTH = int(raw_input("Enter the output length (in bars): "))
         elif inp in ["m","M"]:

@@ -36,6 +36,7 @@ class MarkovChain: # gosh this version is much larger than the previous one!
         self.o = order
         self.history = [startkey for i in range(order)]
         self.start = startkey
+        self.state = startkey
 
     def tick(self):
         current = self.generateKey(self.history)
@@ -118,6 +119,7 @@ class WeightedMarkovChain(MarkovChain):
         self.start = startkey
         self.weightMatrix = w
         self.globalState = globalStates[0]
+        self.state = startkey
 
     def tick(self):
         current = self.generateKey(self.history)
