@@ -91,12 +91,12 @@ def createTitle():
     f = file("songnames.txt","r")
     data = f.readline()
     for i in data:
-        if d==" ":
+        if i==" ":
             d.append([])
         else:
             d[-1].append(i)
     T = MarkovChain()
-    T.generateMatrix(d,2)
+    T.generateMatrix(d,4)
     n = ""
     for i in range(random.randrange(5,20)):
         n += str(T.tick())

@@ -2,8 +2,7 @@ import random,re
 
 SEPARATOR = '~'
 # This is for n>1 order Markov Chains:
-splitter = re.compile("([^"+SEPARATOR+"]+?)"+SEPARATOR)
-lastone = re.compile(SEPARATOR+"([^"+SEPARATOR+"]+?)$")
+splitter = re.compile("[^"+SEPARATOR+"]+")
 
 # IF THIS ISN'T A "COMPLEX" PROJECT I DON'T KNOW WHAT IS
 
@@ -28,7 +27,8 @@ class MarkovChain():
         # First, the looping thing:
         for i in data:
             for j in range(self.o):
-                i.append(i[j])
+                if j < len(i):
+                    i.append(i[j])
         # Find o-length sets and add the to a dictionary
         for i in data: # Presumes a dataset
             for j in range(len(i)-self.o):
@@ -61,9 +61,7 @@ class MarkovChain():
         return s[:-len(SEPARATOR)]
 
     def getValues(self,l):
-        t = splitter.findall(l)
-        t.append(lastone.findall(l)[0])
-        return t
+        return splitter.findall(l)
 
     def updateKey(self,current,additional):
         # Remove the first one, update for additional, then get key
