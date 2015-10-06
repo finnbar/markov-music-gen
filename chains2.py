@@ -5,6 +5,7 @@ class MarkovChain: # gosh this version is much larger than the previous one!
     def __init__(self):
         self.matrix = []
         self.state = "0"
+        self.tab = {}
     
     def generateMatrix(self,data,order,startkey="0"):
         # Generate a transition matrix from some data!
@@ -12,7 +13,8 @@ class MarkovChain: # gosh this version is much larger than the previous one!
         # And have an integer order, for goodness' sake!
         prev = [startkey for i in range(order)] # Nothing has happened so far
         prevkey = self.generateKey(prev)
-        t = {prevkey: {}}
+        self.tab.update({prevkey: {}})
+        t = self.tab
         data.append(startkey) # We want the last piece of data to be considered too!
         for dataset in data:
             # Reset for each piece
@@ -28,6 +30,16 @@ class MarkovChain: # gosh this version is much larger than the previous one!
                 newprev = self.generatePrev(d,prev) # Shift everything back
                 prevkey = self.generateKey(newprev) # Get a new key
                 prev = newprev[:] # Go go go!
+            for i in range(order+1): # Now do the end bit for the remaining X.X.X classes
+                if not (prevkey in t.keys()):
+                    t[prevkey] = {}
+                if not (str(d) in t[prevkey].keys()):
+                    t[prevkey][str(d)] = 1
+                else:
+                    t[prevkey][str(d)] += 1
+                newprev = self.generatePrev(startkey,prev)
+                prevkey = self.generateKey(newprev)
+                prev = newprev[:]
         # Now turn the occurences into probabilities!
         for k in t:
             tot = 0.0
@@ -52,7 +64,7 @@ class MarkovChain: # gosh this version is much larger than the previous one!
                 self.matrix[current]
                 foundKey = 0
             except KeyError:
-                print "Bad state. Searching for one like '."+self.generateKey(self.history[self.o-foundKey:])+"'"
+                print "Bad state. Searching for one like '."+self.generateKey(self.history[self.o-foundKey+1:])+"'"
                 foundKey -= 1
                 for i in self.matrix.keys():
                     if "."+self.generateKey(self.history[self.o-foundKey:]) in i:
@@ -100,7 +112,8 @@ class WeightedMarkovChain(MarkovChain):
         # This state can be changed with changeGlobalState(), or by changing the globalState variable
         prev = [startkey for i in range(order)] # Nothing has happened so far
         prevkey = self.generateKey(prev)
-        t = {prevkey: {}}
+        self.tab.update({prevkey: {}})
+        t = self.tab
         w = {i: {prevkey: {}} for i in globalStates}
         data.append(startkey) # We want the last piece of data to be considered too!
         for dataset in data:
@@ -124,6 +137,20 @@ class WeightedMarkovChain(MarkovChain):
                 newprev = self.generatePrev(d,prev) # Shift everything back
                 prevkey = self.generateKey(newprev) # Get a new key
                 prev = newprev[:] # Go go go!
+            for _ in range(order+1): # Now do the end bit for the remaining X.X.X classes
+                if not (prevkey in t.keys()):
+                    t[prevkey] = {}
+                    for i in w.keys():
+                        w[str(i)][prevkey] = {}
+                if not (str(d) in t[prevkey].keys()):
+                    t[prevkey][str(d)] = 1
+                    for i in w.keys():
+                        w[str(i)][prevkey][str(d)] = 1
+                else:
+                    t[prevkey][str(d)] += 1
+                newprev = self.generatePrev(startkey,prev)
+                prevkey = self.generateKey(newprev)
+                prev = newprev[:]
         # Now turn the occurences into probabilities!
         for k in t:
             tot = 0.0
@@ -177,14 +204,15 @@ class WeightedMarkovChain(MarkovChain):
                     self.history = [self.start for j in range(self.o)]
                 return keys[i]
 
-class NameMarkovChain(MarkovChain):
+class NameMarkovChain(MarkovChain): # Essentially simplified
     def generateMatrix(self,data,order,startkey="0"):
         # Generate a transition matrix from some data!
         # Please do not have SEPARATOR in your data or startkey
         # And have an integer order, for goodness' sake!
         prev = [startkey for i in range(order)] # Nothing has happened so far
         prevkey = self.generateKey(prev)
-        t = {prevkey: {}}
+        self.tab.update({prevkey: {}})
+        t = self.tab
         data.append(startkey) # We want the last piece of data to be considered too!
         for dataset in data:
             for d in dataset:

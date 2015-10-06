@@ -1,32 +1,27 @@
 # EPQ: Generative Music
-# Markov Music Generator (MMG) [needs better name]
+# musicbot3000!
 
 '''
 IDEAS FOR IMPROVEMENT:
-* Rythmic Consistency (if it starts with long notes, stay with them and vice versa)
-  This might be achieved by increasing the RYTHMN_ORDER.
-  Or this can be done with adding legato to short notes with long notes,
-  and staccato to long notes with short notes.
-* Melody links with rythmn: notes which tend to be grace notes should be like that in the output.
-  Maybe include weightings for position in the bar? (1,4,3,2 in order of importance)
-* Maybe weight melody stuff by length? <- IMPORTANT!!!!!
-  Add to Weighting - just for loop through the value as a multiplier to add it multiple times.
-* It seems to just really like long notes. Maybe I need to add some more sources.
-* Having key influenced by underneath chords, and generating those chords before melodies.
-* This can't make minor music. Yet.
+* Sometimes it gets stuck on one note. Maybe try increasing the melody order?
+  ACTUALLY I REALLY NEED TO JUST ADD MORE SOURCES, COME ON.
+* It can't make minor music. Yet.
+* Its music isn't great (MORE SOURCES ALREADY).
 '''
 
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
-RYTHMN_ORDER = 8 # The order of the Markov Chain/Process for RYTHMN
+RYTHMN_ORDER = 4 # The order of the Markov Chain/Process for RYTHMN
 OUTPUT_LENGTH = 8 # Number of bars of output
 TIME_SIGNATURE = 4.0 # Beats in a bar!
 TINTINN = False
 T_VOICE = 1 # Variation for the Tintinnabuli method (+ 1 2 3 ONLY)
 
 from music21 import * # *feels the fury of the Python Gods*
-from chains2 import *
-import os,copy
+from chains3 import *
+import os,copy,re
+
+spaceremover = re.compile("  ")
 
 def getMelodyData(data):
     melodyData = []
@@ -92,16 +87,20 @@ def getRythmnData(data):
     return (rythmnData,rythmnKey)
 
 def createTitle():
-    d = []
+    d = [[]]
     f = file("songnames.txt","r")
     data = f.readline()
     for i in data:
-        d.append(i)
-    T = NameMarkovChain()
-    T.generateMatrix(d,2," ")
+        if d==" ":
+            d.append([])
+        else:
+            d[-1].append(i)
+    T = MarkovChain()
+    T.generateMatrix(d,2)
     n = ""
     for i in range(random.randrange(5,20)):
         n += str(T.tick())
+    n = spaceremover.sub(" ",n)
     return n
 
 def generateMusic():
@@ -123,15 +122,16 @@ def generateMusic():
     # This is done through analysis by music21 and then Markov stuff from chains2
     # First, the melody stuff:
     melodyData,weightData = getMelodyData(data)
-    MelodyChain = WeightedMarkovChain()
-    MelodyChain.generateMatrix(melodyData,['o','f','l'],weightData,MELODY_ORDER,"X")
+    #MelodyChain = WeightedMarkovChain()
+    #MelodyChain.generateMatrix(melodyData,['o','f','l'],weightData,MELODY_ORDER,"X")
+    MelodyChain = MarkovChain()
+    MelodyChain.generateMatrix(melodyData,MELODY_ORDER)
     print "Melody data analysed!"
-    print MelodyChain.matrix['X.X']
     # Now, the rythmn stuff:
     # We're going to have another Markov chain looking at rythmn...
     rythmnData, rythmnKey = getRythmnData(data)
     RythmnChain = MarkovChain()
-    RythmnChain.generateMatrix(rythmnData,RYTHMN_ORDER,"X")
+    RythmnChain.generateMatrix(rythmnData,RYTHMN_ORDER)
     rythmnKey.update({"X": []}) # Just so it doesn't panic when it gets an X
     print "Rythmn data analysed!"
     # Let's simulate it now!
@@ -149,10 +149,14 @@ def generateMusic():
             slur = False
             while currentBeat == []:
                 currentBeat = copy.copy(rythmnKey[RythmnChain.tick()])
+                if currentBeat == []: # if it's still not there
+                    print "End of phrase"
             durat += currentBeat[0]
             currentBeat.pop(0)
             while currentBeat == []:
                 currentBeat = copy.copy(rythmnKey[RythmnChain.tick()])
+                if currentBeat == []: # if it's still not there
+                    print "End of phrase"
             if currentBeat[0] == '+':
                 slur = True
                 currentBeat.pop(0)
@@ -223,6 +227,7 @@ def generateMusic():
     titleOfSong = createTitle()
     finalScore.insert(metadata.Metadata())
     finalScore.metadata.title = titleOfSong
+    finalScore.metadata.composer = 'musicbot3000'
     print "Generated title!"
     finalScore.insert(0,tune)
     if TINTINN: finalScore.insert(0,tinn)
@@ -233,7 +238,7 @@ if __name__ == '__main__':
     rythmnKey = {}
     # This is our menu, where you can change settings and then generate music.
     inp = ""
-    while not (inp in ["g","G"]):
+    while not (inp in ["q","Q"]):
         print
         print "MENU"
         print "____"
@@ -243,7 +248,9 @@ if __name__ == '__main__':
         print "m) Change the order of the melody matrix"
         print "r) Change the order of the rythmn matrix"
         print "n) Add a Tintinnabuli bassline"
+        print "v) Choose a T-Voice (only applies to Tintinnabuli basslines)"
         print "g) Generate the music!"
+        print "q) QUIT"
         inp = raw_input("What would you like to do? (type the letter) ")
         if inp in ["t","T"]:
             TIME_SIGNATURE = int(raw_input("Enter the number of beats in a bar: "))
@@ -256,4 +263,8 @@ if __name__ == '__main__':
             MELODY_ORDER = int(raw_input("Enter the melody matrix order (number): "))
         elif inp in ["r","R"]:
             RYTHMN_ORDER = int(raw_input("Enter the rythmn order (number): "))
-    generateMusic()
+        elif inp in ["v","V"]:
+            T_VOICE = int(raw_input("Enter the T-Voice number (1,2,3): "))
+        elif inp in ["g","G"]:
+            generateMusic()
+    print "Bye for now!"
