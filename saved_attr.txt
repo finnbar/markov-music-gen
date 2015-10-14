@@ -1,0 +1,10 @@
+(lp0
+I2
+aS'a~b'
+p1
+a(lp2
+S'a'
+p3
+aS'b'
+p4
+aa.

@@ -1,6 +1,6 @@
-import random,re
+import random,re,pickle
 
-SEPARATOR = '~'
+SEPARATOR = '|'
 # This is for n>1 order Markov Chains:
 splitter = re.compile("[^"+SEPARATOR+"]+")
 
@@ -10,6 +10,7 @@ class MarkovChain():
     def __init__(self):
         self.matrix = {}
         self.lag = [] # For the starting returns
+        self.o = 1
 
     def generateMatrix(self,data,order):
         '''
@@ -69,3 +70,22 @@ class MarkovChain():
         t.append(additional)
         t.pop(0)
         return self.generateKey(t)
+
+    def saveMatrix(self):
+        f = file("saved_matrix.txt","w")
+        d = file("saved_attr.txt","w")
+        pickle.dump(self.matrix,f)
+        pickle.dump([self.o,self.state,self.lag],d)
+        f.close()
+        d.close()
+
+    def loadMatrix(self):
+        f = file("saved_matrix.txt","r")
+        d = file("saved_attr.txt","r")
+        self.matrix = pickle.load(f)
+        attr = pickle.load(d)
+        self.o = attr[0]
+        self.state = attr[1]
+        self.lag = attr[2]
+        f.close()
+        d.close()

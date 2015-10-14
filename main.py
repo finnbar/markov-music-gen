@@ -87,13 +87,14 @@ def getRythmnData(data):
     return (rythmnData,rythmnKey)
 
 def createTitle():
-    d = [[]]
+    d = []
     f = file("songnames.txt","r")
-    data = f.readline()
-    for i in data:
-        if i==" ":
-            d.append([])
-        else:
+    while True:
+        data = f.readline()
+        if not data:
+            break
+        d.append([])
+        for i in data:
             d[-1].append(i)
     T = MarkovChain()
     T.generateMatrix(d,4)
