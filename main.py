@@ -1,14 +1,6 @@
 # EPQ: Generative Music
 # musicbot3000!
 
-'''
-IDEAS FOR IMPROVEMENT:
-* Sometimes it gets stuck on one note. Maybe try increasing the melody order?
-  ACTUALLY I REALLY NEED TO JUST ADD MORE SOURCES, COME ON.
-* It can't make minor music. Yet.
-* Its music isn't great (MORE SOURCES ALREADY).
-'''
-
 KEY = "C" # The key of our output music
 MELODY_ORDER = 2 # The order of the Markov Chain/Process for MELODY
 RYTHMN_ORDER = 4 # The order of the Markov Chain/Process for RYTHMN
@@ -19,6 +11,7 @@ T_VOICE = 1 # Variation for the Tintinnabuli method (+ 1 2 3 ONLY)
 
 from music21 import * # *feels the fury of the Python Gods*
 from chains3 import *
+import titleGenerator
 import os,copy,re
 
 spaceremover = re.compile("  ")
@@ -85,24 +78,6 @@ def getRythmnData(data):
                     currentBeat = []
                     overflow = 0
     return (rythmnData,rythmnKey)
-
-def createTitle():
-    d = []
-    f = file("songnames.txt","r")
-    while True:
-        data = f.readline()
-        if not data:
-            break
-        d.append([])
-        for i in data:
-            d[-1].append(i)
-    T = MarkovChain()
-    T.generateMatrix(d,4)
-    n = ""
-    for i in range(random.randrange(5,20)):
-        n += str(T.tick())
-    n = spaceremover.sub(" ",n)
-    return n
 
 def generateMusic():
     # Let's go!
@@ -225,7 +200,7 @@ def generateMusic():
             tinn.append(n)
         print "Tintinnabuli bass added!"
     finalScore = stream.Score()
-    titleOfSong = createTitle()
+    titleOfSong = titleGenerator.generateTitle()
     finalScore.insert(metadata.Metadata())
     finalScore.metadata.title = titleOfSong
     finalScore.metadata.composer = 'musicbot3000'
