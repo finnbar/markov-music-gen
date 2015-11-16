@@ -1,4 +1,5 @@
 # EPQ: Generative Music
+# Written in Python 2.7
 # musicbot3000!
 
 KEY = "C" # The key of our output music
@@ -7,48 +8,43 @@ RYTHMN_ORDER = 4 # The order of the Markov Chain/Process for RYTHMN
 OUTPUT_LENGTH = 8 # Number of bars of output
 TIME_SIGNATURE = 4.0 # Beats in a bar!
 TINTINN = False
-T_VOICE = 1 # Variation for the Tintinnabuli method (+ 1 2 3 ONLY)
+T_VOICE = 2 # Variation for the Tintinnabuli method (+ 1 2 3 ONLY)
 
 from music21 import * # *feels the fury of the Python Gods*
 from chains3 import *
 import titleGenerator
-import os,copy,re
-
-spaceremover = re.compile("  ")
+import os
 
 def getMelodyData(data):
     melodyData = []
-    weightData = []
     for d in data:
         part = d.parts[0].getElementsByClass(stream.Measure) # Returns a list of Measures
         key = note.Note(part[0].keySignature.getScale().tonic)
-        # Now, am I going to get "key" from keysignature or underlying chord?
-        # Probably chord, so I need to rewrite the <key> stuff...
-        melodyData.append([])
+        melodyData.append([]) # melodyData is a list of phrases, which contains a set of notes with no rests.
         for m in part: # For each measure!
             if(m.keySignature): key = note.Note(m.keySignature.getScale().tonic)
             for n in m.notesAndRests:
                 if(type(n) == note.Note):
                     melodyData[-1].append(interval.Interval(key,n).simpleName)
                 elif(type(n) == note.Rest):
-                    melodyData.append([])
-                else: # It's a chord! Get the top note!
+                    melodyData.append([]) # A rest ends a phrase, and starts a new one.
+                else: # It's a chord! Get the top note! This is just in case.
                     melodyData[-1].append(interval.Interval(key,n[-1]).simpleName)
-                if(n.offset == 0.0):
-                    weightData.append(['f','f','f']) # extra copies of state => higher weighting
-                elif(n.offset == m.barDuration.quarterLength - 1):
-                    weightData.append(['l','l','l'])
-                else:
-                    weightData.append([])
-    return (melodyData,weightData)
+    return melodyData
 
 def getRythmnData(data):
-    currentLetter = 'a'
-    for d in data: # I might add this loop to the previous loop for computation speed
-        rythmnData.append([])
+    rythmnData = []
+    rythmnKey = {}
+    currentLetter = 'a' # This is how we store our beats.
+    # A beat is a series of note lengths, for example [16, 32, 32]
+    # However, we don't want to use [16, 32, 32] as a key for our Markov Chain.
+    # (it's too long and confusing)
+    # So we instead store the keys as letters, and store the beats corresponding to those letters in rythmnKey.
+    for d in data:
+        rythmnData.append([]) # rythmnData is a series of beats, which don't contain rests.
         part = d.parts[0].getElementsByClass(stream.Measure)
-        overflow = 0 # how far we're into a single beat
-        currentBeat = []
+        overflow = 0 # How far we're into a single beat
+        currentBeat = [] # The current beat that we're working with
         for m in part:
             for n in m.notesAndRests:
                 l = n.quarterLength
@@ -59,7 +55,7 @@ def getRythmnData(data):
                     if currentBeat in rythmnKey.values():
                         rythmnData[-1].append(rythmnKey.keys()[rythmnKey.values().index(currentBeat)])
                     else:
-                        rythmnKey.update({currentLetter: copy.copy(currentBeat)})
+                        rythmnKey.update({currentLetter: currentBeat[:]})
                         rythmnData[-1].append(currentLetter)
                         currentLetter = chr(ord(currentLetter)+1)
                     currentBeat = []
@@ -72,7 +68,7 @@ def getRythmnData(data):
                     if currentBeat in rythmnKey.values():
                         rythmnData[-1].append(rythmnKey.keys()[rythmnKey.values().index(currentBeat)])
                     else:
-                        rythmnKey.update({currentLetter: copy.copy(currentBeat)})
+                        rythmnKey.update({currentLetter: currentBeat[:]})
                         rythmnData[-1].append(currentLetter)
                         currentLetter = chr(ord(currentLetter)+1)
                     currentBeat = []
@@ -97,9 +93,7 @@ def generateMusic():
     # Now, we need to do the transition matrix stuff!
     # This is done through analysis by music21 and then Markov stuff from chains2
     # First, the melody stuff:
-    melodyData,weightData = getMelodyData(data)
-    #MelodyChain = WeightedMarkovChain()
-    #MelodyChain.generateMatrix(melodyData,['o','f','l'],weightData,MELODY_ORDER,"X")
+    melodyData = getMelodyData(data)
     MelodyChain = MarkovChain()
     MelodyChain.generateMatrix(melodyData,MELODY_ORDER)
     print "Melody data analysed!"
@@ -124,13 +118,13 @@ def generateMusic():
         while slur:
             slur = False
             while currentBeat == []:
-                currentBeat = copy.copy(rythmnKey[RythmnChain.tick()])
+                currentBeat = rythmnKey[RythmnChain.tick()][:]
                 if currentBeat == []: # if it's still not there
                     print "End of phrase"
             durat += currentBeat[0]
             currentBeat.pop(0)
             while currentBeat == []:
-                currentBeat = copy.copy(rythmnKey[RythmnChain.tick()])
+                currentBeat = rythmnKey[RythmnChain.tick()][:]
                 if currentBeat == []: # if it's still not there
                     print "End of phrase"
             if currentBeat[0] == '+':
@@ -178,20 +172,21 @@ def generateMusic():
                 correct = e.octave
         tune.notesAndRests[i].pitch.octave = correct
     print "Melody determined!"
+    tinn = stream.Part()
     if TINTINN:
         # Now, Tintinnabuli!
-        tinn = stream.Part()
         tinn.append(meter.TimeSignature(str(int(TIME_SIGNATURE))+'/4'))
         tinn.append(key.Key(KEY))
         for i in tune.notesAndRests:
             # Our base pitches:
-            pitches = [note.Note(KEY+"3"),interval.transposeNote(note.Note(KEY+"3"),'M3'),interval.transposeNote(note.Note(KEY+"2"),'p5')]
+            if not i.octave: i.octave = 4
+            pitches = [note.Note(KEY+str(i.octave)),interval.transposeNote(note.Note(KEY+str(i.octave)),'M3'),interval.transposeNote(note.Note(KEY+str(i.octave)),'p5')]
             localpitches = {}
             for j in range(len(pitches)):
-                localpitches.update({str(interval.Interval(pitches[j],i).semitones): pitches[j]})
+                localpitches.update({interval.Interval(pitches[j],i).semitones: pitches[j]})
             c = T_VOICE-1
             n = localpitches[sorted(localpitches)[c]]
-            while interval.Interval(n,i).semitones % 12 == 1:
+            if interval.Interval(n,i).semitones % 12 == 1:
                 c+=1
                 if c>2: c=0
                 n = localpitches[sorted(localpitches)[c]]
@@ -210,8 +205,6 @@ def generateMusic():
     finalScore.show()
 
 if __name__ == '__main__':
-    rythmnData = []
-    rythmnKey = {}
     # This is our menu, where you can change settings and then generate music.
     inp = ""
     while not (inp in ["q","Q"]):
@@ -241,6 +234,9 @@ if __name__ == '__main__':
             RYTHMN_ORDER = int(raw_input("Enter the rythmn order (number): "))
         elif inp in ["v","V"]:
             T_VOICE = int(raw_input("Enter the T-Voice number (1,2,3): "))
+        elif inp in ["n","N"]:
+            TINTINN = True
+            print "Bass added!"
         elif inp in ["g","G"]:
             generateMusic()
     print "Bye for now!"
